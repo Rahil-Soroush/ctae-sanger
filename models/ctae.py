@@ -18,12 +18,14 @@ class PositionalEncoding(nn.Module):
     Output:
         x with positional encoding added (same shape).
     """
+
     def __init__(self, d_model, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.d_model = d_model
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        div_term = torch.exp(torch.arange(
+            0, d_model, 2).float() * (-math.log(10000.0) / d_model))
 
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term[:d_model // 2])
@@ -50,6 +52,7 @@ class LearnablePositionalEncoding(nn.Module):
     Output:
         Tensor of shape (T, B, d_model) with learned positional embeddings added.
     """
+
     def __init__(self, d_model, max_len=5000):
         super(LearnablePositionalEncoding, self).__init__()
         self.positional_encoding = nn.Parameter(torch.zeros(max_len, d_model))
@@ -79,7 +82,18 @@ class TransformerEncoder(nn.Module):
     Output:
         memory: (T, B, latent_dim)
     """
-    def __init__(self, input_dim, latent_dim, nhead, num_layers, max_len=5000, pe=False, pe_learn=False, batch_norm=False, causal=True):
+
+    def __init__(
+            self,
+            input_dim,
+            latent_dim,
+            nhead,
+            num_layers,
+            max_len=5000,
+            pe=False,
+            pe_learn=False,
+            batch_norm=False,
+            causal=True):
         super(TransformerEncoder, self).__init__()
         self.pe = pe
         self.pe_learn = pe_learn
@@ -88,19 +102,22 @@ class TransformerEncoder(nn.Module):
         if pe and not pe_learn:
             self.positional_encoding = PositionalEncoding(input_dim, max_len)
         elif pe and pe_learn:
-            self.positional_encoding = LearnablePositionalEncoding(input_dim, max_len)
+            self.positional_encoding = LearnablePositionalEncoding(
+                input_dim, max_len)
 
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=nhead)
-        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=num_layers)
+        self.encoder_layer = nn.TransformerEncoderLayer(
+            d_model=input_dim, nhead=nhead)
+        self.transformer_encoder = nn.TransformerEncoder(
+            self.encoder_layer, num_layers=num_layers)
         self.fc = nn.Linear(input_dim, latent_dim)
         self.batch_norm = nn.BatchNorm1d(latent_dim, affine=False)
 
         if self.causal:
             mask = torch.triu(torch.full((max_len, max_len),
-                                        float('-inf')), diagonal=1)
+                                         float('-inf')), diagonal=1)
             self.register_buffer("causal_mask", mask)
 
-    def forward(self, src): #batch_norm
+    def forward(self, src):  # batch_norm
         if self.pe:
             src = self.positional_encoding(src)
 
@@ -114,13 +131,14 @@ class TransformerEncoder(nn.Module):
         memory = self.fc(memory)
 
         if self.batch_norm:
-            memory = memory.permute(1, 2, 0)  # (batch_size, latent_dim, num_timeframes)
+            # (batch_size, latent_dim, num_timeframes)
+            memory = memory.permute(1, 2, 0)
             memory = self.batch_norm(memory)
-            memory = memory.permute(2, 0, 1)  # (num_timeframes, batch_size, latent_dim)
+            # (num_timeframes, batch_size, latent_dim)
+            memory = memory.permute(2, 0, 1)
 
         return memory
-    
-    
+
 
 class TransformerDecoder(nn.Module):
     """
@@ -142,7 +160,17 @@ class TransformerDecoder(nn.Module):
     Output:
         Tensor of shape (T, B, output_dim).
     """
-    def __init__(self, latent_dim, output_dim, nhead, num_layers, max_len=5000, pe=False, pe_learn=False,causal=True):
+
+    def __init__(
+            self,
+            latent_dim,
+            output_dim,
+            nhead,
+            num_layers,
+            max_len=5000,
+            pe=False,
+            pe_learn=False,
+            causal=True):
         super(TransformerDecoder, self).__init__()
         self.pe = pe
         self.pe_learn = pe_learn
@@ -150,15 +178,18 @@ class TransformerDecoder(nn.Module):
         if (pe and (not pe_learn)):
             self.positional_encoding = PositionalEncoding(latent_dim, max_len)
         elif pe and pe_learn:
-            self.positional_encoding = LearnablePositionalEncoding(latent_dim, max_len)
+            self.positional_encoding = LearnablePositionalEncoding(
+                latent_dim, max_len)
 
-        self.decoder_layer = nn.TransformerDecoderLayer(d_model=latent_dim, nhead=nhead)
-        self.transformer_decoder = nn.TransformerDecoder(self.decoder_layer, num_layers=num_layers)
+        self.decoder_layer = nn.TransformerDecoderLayer(
+            d_model=latent_dim, nhead=nhead)
+        self.transformer_decoder = nn.TransformerDecoder(
+            self.decoder_layer, num_layers=num_layers)
         self.fc = nn.Linear(latent_dim, output_dim)
 
         if self.causal:
             mask = torch.triu(torch.full((max_len, max_len),
-                                        float('-inf')), diagonal=1)
+                                         float('-inf')), diagonal=1)
             self.register_buffer("causal_mask", mask)
 
     def forward(self, tgt, memory):
@@ -174,7 +205,8 @@ class TransformerDecoder(nn.Module):
         return output
 
 
-def build_latent_layout_and_masks(dimension: Dict[str, int], N: int, segment_order=None):
+def build_latent_layout_and_masks(
+        dimension: Dict[str, int], N: int, segment_order=None):
     """
     Construct latent subspace layout and masks from bitstring specification.
 
@@ -192,17 +224,18 @@ def build_latent_layout_and_masks(dimension: Dict[str, int], N: int, segment_ord
     """
 
     def popcount(s): return s.count('1')
-    
+
     if segment_order is None:
         ordered_keys = sorted(dimension.keys(), key=lambda k: (popcount(k), k))
     else:
-        ordered_keys = [k for k in segment_order if k in dimension and dimension[k] > 0]
+        ordered_keys = [
+            k for k in segment_order if k in dimension and dimension[k] > 0]
 
     segments = []
     cursor = 0
     for k in ordered_keys:
         size = int(dimension[k])
-        if size <= 0: 
+        if size <= 0:
             continue
         segments.append((k, (cursor, cursor + size)))
         cursor += size
@@ -228,23 +261,23 @@ def build_latent_layout_and_masks(dimension: Dict[str, int], N: int, segment_ord
 
 
 class CoupledTransformerAutoencoderTwoRegions(nn.Module):
-    def __init__(self, 
-                    input_dim1, 
-                    input_dim2, 
-                    r1_specific_dim, 
-                    r2_specific_dim, 
-                    shared_dim,
-                    nhead=2, 
-                    num_layers=2, 
-                    num_layers2=None,
-                    max_len=5000, 
-                    pe=False, pe_learn=False, 
-                    batch_norm=True):
+    def __init__(self,
+                 input_dim1,
+                 input_dim2,
+                 r1_specific_dim,
+                 r2_specific_dim,
+                 shared_dim,
+                 nhead=2,
+                 num_layers=2,
+                 num_layers2=None,
+                 max_len=5000,
+                 pe=False, pe_learn=False,
+                 batch_norm=True):
         super(CoupledTransformerAutoencoderTwoRegions, self).__init__()
 
-        self.latent_dim1 = shared_dim+r1_specific_dim
-        self.latent_dim2 = shared_dim+r2_specific_dim
-        self.latent_dim = shared_dim+r1_specific_dim+r2_specific_dim
+        self.latent_dim1 = shared_dim + r1_specific_dim
+        self.latent_dim2 = shared_dim + r2_specific_dim
+        self.latent_dim = shared_dim + r1_specific_dim + r2_specific_dim
         self.shared_dim = shared_dim
         self.r1_specific_dim = r1_specific_dim
         self.r2_specific_dim = r2_specific_dim
@@ -253,27 +286,59 @@ class CoupledTransformerAutoencoderTwoRegions(nn.Module):
             num_layers2 = num_layers
 #         self.shared_latent_dim = shared_latent_dim
 
-        self.encoder1 = TransformerEncoder(input_dim1, self.latent_dim, nhead, num_layers, max_len, pe, pe_learn, batch_norm)
-        self.encoder2 = TransformerEncoder(input_dim2, self.latent_dim, nhead, num_layers2, max_len, pe, pe_learn, batch_norm)
-        self.decoder1 = TransformerDecoder(self.latent_dim, input_dim1, nhead, num_layers, max_len, pe, pe_learn)
-        self.decoder2 = TransformerDecoder(self.latent_dim, input_dim2, nhead, num_layers2, max_len, pe, pe_learn)
+        self.encoder1 = TransformerEncoder(
+            input_dim1,
+            self.latent_dim,
+            nhead,
+            num_layers,
+            max_len,
+            pe,
+            pe_learn,
+            batch_norm)
+        self.encoder2 = TransformerEncoder(
+            input_dim2,
+            self.latent_dim,
+            nhead,
+            num_layers2,
+            max_len,
+            pe,
+            pe_learn,
+            batch_norm)
+        self.decoder1 = TransformerDecoder(
+            self.latent_dim,
+            input_dim1,
+            nhead,
+            num_layers,
+            max_len,
+            pe,
+            pe_learn)
+        self.decoder2 = TransformerDecoder(
+            self.latent_dim,
+            input_dim2,
+            nhead,
+            num_layers2,
+            max_len,
+            pe,
+            pe_learn)
 
-        self.linear_shared_1 = nn.Linear(self.latent_dim, self.latent_dim, bias=False)
-        self.linear_shared_2 = nn.Linear(self.latent_dim, self.latent_dim, bias=False)
+        self.linear_shared_1 = nn.Linear(
+            self.latent_dim, self.latent_dim, bias=False)
+        self.linear_shared_2 = nn.Linear(
+            self.latent_dim, self.latent_dim, bias=False)
 
-        self.weights1 = [1 for _ in range(shared_dim)]+[1 for _ in range(r1_specific_dim)]+[0 for _ in range(r2_specific_dim)]
-        self.weights2 = [1 for _ in range(shared_dim)]+[0 for _ in range(r1_specific_dim)]+[1 for _ in range(r2_specific_dim)]
-
+        self.weights1 = [1 for _ in range(
+            shared_dim)] + [1 for _ in range(r1_specific_dim)] + [0 for _ in range(r2_specific_dim)]
+        self.weights2 = [1 for _ in range(
+            shared_dim)] + [0 for _ in range(r1_specific_dim)] + [1 for _ in range(r2_specific_dim)]
 
     def split_data(self, x, num_neurons1=None):
         x = x.permute(1, 0, 2)  # (num_timeframes, batch_size, input_dim)
         # Here, the dimensions of x: (#time_points, #neurons)
         if num_neurons1 is None:
-            num_neurons1 = x.shape[-1]//2
+            num_neurons1 = x.shape[-1] // 2
         x1 = x[:, :, :num_neurons1]
         x2 = x[:, :, num_neurons1:]
         return x1, x2
-
 
     def forward(self, x, num_neurons1=None):
         x1, x2 = self.split_data(x, num_neurons1=num_neurons1)
@@ -285,27 +350,32 @@ class CoupledTransformerAutoencoderTwoRegions(nn.Module):
         z1_full = self.linear_shared_1(z1)
         z2_full = self.linear_shared_2(z2)
 
-
         D = self.latent_dim
-        self.weights_tensor1 = torch.tensor(self.weights1, dtype=z1_full.dtype, device=z1_full.device)
+        self.weights_tensor1 = torch.tensor(
+            self.weights1, dtype=z1_full.dtype, device=z1_full.device)
         # Reshape/unsqueeze to (1, 1, D) so it can broadcast across (B, T, D)
-        self.weights_tensor1 = self.weights_tensor1.view(1, 1, D) 
+        self.weights_tensor1 = self.weights_tensor1.view(1, 1, D)
 
-        self.weights_tensor2 = torch.tensor(self.weights2, dtype=z1_full.dtype, device=z1_full.device)
+        self.weights_tensor2 = torch.tensor(
+            self.weights2, dtype=z1_full.dtype, device=z1_full.device)
         # Reshape/unsqueeze to (1, 1, D) so it can broadcast across (B, T, D)
         self.weights_tensor2 = self.weights_tensor2.view(1, 1, D)
 
-        self.shared_mask_tensor = ((self.weights_tensor1 == 1) & (self.weights_tensor2 == 1)).float()
+        self.shared_mask_tensor = (
+            (self.weights_tensor1 == 1) & (
+                self.weights_tensor2 == 1)).float()
 
+        z = ((z1_full * self.weights_tensor1) + (z2_full * self.weights_tensor2)
+             ) / (self.weights_tensor1 + self.weights_tensor2)  # (B, T, latent_dim)
 
-        z = ((z1_full*self.weights_tensor1) + (z2_full*self.weights_tensor2))/(self.weights_tensor1+self.weights_tensor2)#(B, T, latent_dim)
+        shared_subspace1 = z1_full[:, :, :self.shared_dim]
+        shared_subspace2 = z2_full[:, :, :self.shared_dim]
+        specific_subspace1 = z1_full[:, :,
+                                     self.shared_dim:self.shared_dim + self.r1_specific_dim]
+        specific_subspace2 = z2_full[:, :,
+                                     self.shared_dim + self.r1_specific_dim:]
 
-        shared_subspace1 = z1_full[:,:,:self.shared_dim]
-        shared_subspace2 = z2_full[:,:,:self.shared_dim]
-        specific_subspace1 = z1_full[:,:,self.shared_dim:self.shared_dim+self.r1_specific_dim]
-        specific_subspace2 = z2_full[:,:,self.shared_dim+self.r1_specific_dim:]
-
-        shared_subspace = (shared_subspace1+shared_subspace2)/2
+        shared_subspace = (shared_subspace1 + shared_subspace2) / 2
 
         decoder_input11 = z * self.weights_tensor1
         decoder_input22 = z * self.weights_tensor2
@@ -316,12 +386,12 @@ class CoupledTransformerAutoencoderTwoRegions(nn.Module):
         tgt2 = torch.zeros_like(decoder_input22)
 
         # Decoding using the shared subspaces
-        x11_hat = self.decoder1(tgt1,decoder_input11)
-        x12_hat = self.decoder2(tgt2,z_shared)
-        x22_hat = self.decoder2(tgt2,decoder_input22)
-        x21_hat = self.decoder1(tgt1,z_shared)
+        x11_hat = self.decoder1(tgt1, decoder_input11)
+        x12_hat = self.decoder2(tgt2, z_shared)
+        x22_hat = self.decoder2(tgt2, decoder_input22)
+        x21_hat = self.decoder1(tgt1, z_shared)
 
-        return x11_hat, x22_hat, x12_hat, x21_hat,shared_subspace1,shared_subspace2,specific_subspace1,specific_subspace2,z
+        return x11_hat, x22_hat, x12_hat, x21_hat, shared_subspace1, shared_subspace2, specific_subspace1, specific_subspace2, z
 
     def get_latent_repr(self, x):
         x1, x2 = self.split_data(x)
@@ -351,7 +421,6 @@ class CoupledTransformerAutoencoderTwoRegions(nn.Module):
         x_pred = self.get_recons(x, id=id)
         x_pred_list = [i.detach().cpu().numpy() for i in x_pred]
         return x_pred_list
-
 
 
 class CoupledTransformerAutoencoderMultiRegion(nn.Module):
@@ -439,18 +508,25 @@ class CoupledTransformerAutoencoderMultiRegion(nn.Module):
         assert len(input_dim) >= 2, "Use N>=2"
         self.N = len(input_dim)
         for k in dimension.keys():
-            assert len(k) == self.N, f"Bitstring key '{k}' must have length N={self.N}"
+            assert len(
+                k) == self.N, f"Bitstring key '{k}' must have length N={self.N}"
 
         segments, D, region_masks_1d, subset_masks_1d = build_latent_layout_and_masks(
-            dimension, self.N, segment_order=segment_order
-        )
+            dimension, self.N, segment_order=segment_order)
         self.segments = segments
         self.latent_dim = D
         self.dimension = dimension
         self.subset_masks_keys = list(subset_masks_1d.keys())
 
-        self.register_buffer("_region_masks_1d", torch.stack(region_masks_1d, dim=0), persistent=False)
-        self._subset_key_to_idx = {k: i for i, k in enumerate(self.subset_masks_keys)}
+        self.register_buffer(
+            "_region_masks_1d",
+            torch.stack(
+                region_masks_1d,
+                dim=0),
+            persistent=False)
+        self._subset_key_to_idx = {
+            k: i for i, k in enumerate(
+                self.subset_masks_keys)}
         self.register_buffer(
             "_subset_masks_1d",
             torch.stack([subset_masks_1d[k] for k in self.subset_masks_keys], dim=0),
@@ -462,12 +538,12 @@ class CoupledTransformerAutoencoderMultiRegion(nn.Module):
 
         self.encoders = nn.ModuleList([
             TransformerEncoder(input_dim[i], self.latent_dim, nhead, num_layers_per_region[i],
-                            max_len, pe, pe_learn, batch_norm=batch_norm)
+                               max_len, pe, pe_learn, batch_norm=batch_norm)
             for i in range(self.N)
         ])
         self.decoders = nn.ModuleList([
             TransformerDecoder(self.latent_dim, input_dim[i], nhead, num_layers_per_region[i],
-                            max_len, pe, pe_learn)
+                               max_len, pe, pe_learn)
             for i in range(self.N)
         ])
         self.linear_proj = nn.ModuleList([
@@ -479,20 +555,23 @@ class CoupledTransformerAutoencoderMultiRegion(nn.Module):
         for d in input_dim:
             self.cum_splits.append(self.cum_splits[-1] + d)
 
-        self.all_shared_key = '1' * self.N if ('1' * self.N) in self.dimension else None
+        self.all_shared_key = '1' * \
+            self.N if ('1' * self.N) in self.dimension else None
 
         self.register_buffer("latent_gate", torch.ones(self.latent_dim))
 
     def _split_concat(self, x_cat: torch.Tensor) -> List[torch.Tensor]:
         outs = []
         for i in range(self.N):
-            a = self.cum_splits[i]; b = self.cum_splits[i+1]
+            a = self.cum_splits[i]
+            b = self.cum_splits[i + 1]
             outs.append(x_cat[..., a:b])
         return outs
 
     def _ensure_region_list(self, x) -> List[torch.Tensor]:
         if isinstance(x, (list, tuple)):
-            assert len(x) == self.N, f"Expected {self.N} region tensors, got {len(x)}"
+            assert len(
+                x) == self.N, f"Expected {self.N} region tensors, got {len(x)}"
             return list(x)
         assert x.shape[-1] == self.cum_splits[-1], \
             f"Last dim {x.shape[-1]} != sum(input_dim) {self.cum_splits[-1]}"
@@ -513,18 +592,23 @@ class CoupledTransformerAutoencoderMultiRegion(nn.Module):
         B, T = xs[0].shape[:2]
         xs_tb = [xi.permute(1, 0, 2) for xi in xs]  # -> (T,B,d_i)
 
-        z_enc  = [self.encoders[i](xs_tb[i])  for i in range(self.N)]   # (T,B,D)
-        z_proj = [self.linear_proj[i](z_enc[i]) for i in range(self.N)] # (T,B,D)
+        z_enc = [self.encoders[i](xs_tb[i]) for i in range(self.N)]   # (T,B,D)
+        z_proj = [
+            self.linear_proj[i](
+                z_enc[i]) for i in range(
+                self.N)]  # (T,B,D)
 
         device = z_proj[0].device
-        region_masks = self._region_masks_1d.to(device)                  # (N,D)
-        region_masks_b = [region_masks[i].view(1,1,-1) for i in range(self.N)]
+        region_masks = self._region_masks_1d.to(
+            device)                  # (N,D)
+        region_masks_b = [region_masks[i].view(
+            1, 1, -1) for i in range(self.N)]
 
+        gate_b = self.latent_gate.view(
+            1, 1, -1)                         # (1,1,D)
 
-        gate_b = self.latent_gate.view(1, 1, -1)                         # (1,1,D)
-
-        
-        num = 0; den = 0
+        num = 0
+        den = 0
         for i in range(self.N):
             wi = region_masks_b[i]
             num = num + (z_proj[i] * wi)
@@ -532,25 +616,39 @@ class CoupledTransformerAutoencoderMultiRegion(nn.Module):
         z_all = num / den
 
         # per-region decode memory = z_all * (w_r * gate)
-        dec_inputs = [z_all * (region_masks_b[i] * gate_b) for i in range(self.N)]
+        dec_inputs = [z_all * (region_masks_b[i] * gate_b)
+                      for i in range(self.N)]
 
         tgt_list = [torch.zeros_like(dec_inputs[i]) for i in range(self.N)]
-        recons_self_tb = [self.decoders[i](tgt_list[i], dec_inputs[i]) for i in range(self.N)]
-        recons_self = [ri.permute(1, 0, 2) for ri in recons_self_tb]     # -> (B,T,d_i)
+        recons_self_tb = [
+            self.decoders[i](
+                tgt_list[i],
+                dec_inputs[i]) for i in range(
+                self.N)]
+        recons_self = [ri.permute(1, 0, 2)
+                       for ri in recons_self_tb]     # -> (B,T,d_i)
 
-        # shared-subspace decodes 
+        # shared-subspace decodes
         recons_shared = {}
         if decode_shared_keys is None:
-            decode_shared_keys = [self.all_shared_key] if self.all_shared_key is not None else []
+            decode_shared_keys = [
+                self.all_shared_key] if self.all_shared_key is not None else []
         if len(decode_shared_keys) > 0:
-            subset_masks_1d = self._subset_masks_1d.to(device)           # (S,D)
+            subset_masks_1d = self._subset_masks_1d.to(
+                device)           # (S,D)
             for key in decode_shared_keys:
-                if key is None: continue
+                if key is None:
+                    continue
                 assert key in self._subset_key_to_idx, f"Requested shared key '{key}' not in dimension dict."
                 kidx = self._subset_key_to_idx[key]
-                mk = subset_masks_1d[kidx].view(1, 1, -1)                # (1,1,D)
+                mk = subset_masks_1d[kidx].view(
+                    1, 1, -1)                # (1,1,D)
                 z_k = z_all * (mk * gate_b)
-                outs_k_tb = [self.decoders[i](torch.zeros_like(z_k), z_k) for i in range(self.N)]
+                outs_k_tb = [
+                    self.decoders[i](
+                        torch.zeros_like(z_k),
+                        z_k) for i in range(
+                        self.N)]
                 recons_shared[key] = [ok.permute(1, 0, 2) for ok in outs_k_tb]
 
         latents = {
@@ -562,4 +660,3 @@ class CoupledTransformerAutoencoderMultiRegion(nn.Module):
             "latent_gate": self.latent_gate
         }
         return recons_self, recons_shared, latents
-

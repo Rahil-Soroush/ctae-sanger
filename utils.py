@@ -10,7 +10,6 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import StratifiedKFold
 
 
-
 def create_data_loaders(
     data,
     batch_size=32,
@@ -38,7 +37,9 @@ def create_data_loaders(
         train_loader (DataLoader): Training data loader.
         val_loader (DataLoader): Validation data loader.
         test_loader (DataLoader): Test data loader.
+
     """
+
     assert train_ratio + val_ratio + test_ratio == 1, "Train, validation, and test ratios must sum to 1"
 
     if isinstance(data, np.ndarray):

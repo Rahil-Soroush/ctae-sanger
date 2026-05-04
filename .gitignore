@@ -1,0 +1,39 @@
+# Ignore Python virtual environments
+venv*/
+.venv*/
+env*/
+ENV*/
+venv_ctae
+
+*.pyc
+*.pth
+*.pt
+*.npy
+
+# Ignore installed packages
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.ipynb_checkpoints/
+data/
+trained_models/
+tensorboard/
+*.tb
+
+# Ignore Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Ignore logs and system files
+*.log
+.DS_Store
+
+# Ignore VS Code settings (optional)
+.vscode/
+
+# Ignore personal notebooks or experiment logs (optional)
+
+runs/
