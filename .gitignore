@@ -4,6 +4,7 @@ venv*/
 env*/
 ENV*/
 venv_ctae
+venv_ctae2
 
 *.pyc
 *.pth
