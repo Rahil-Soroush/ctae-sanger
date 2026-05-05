@@ -880,4 +880,4 @@ def train_ctae_with_logging(
     print(f"Best bundle saved to: {bundle_path}")
     print(f"TensorBoard logs saved to: {log_dir}")
 
-    return history
+    return history, model
